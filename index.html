@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>計算機</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      min-height: 100dvh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .calculator {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100dvh;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0 12px 20px;
+    }
+
+    /* ディスプレイ */
+    .display {
+      padding: 0 8px 12px;
+      text-align: right;
+    }
+
+    .display .expression {
+      font-size: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      min-height: 28px;
+      word-break: break-all;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .display .result {
+      font-size: 80px;
+      font-weight: 300;
+      color: #fff;
+      line-height: 1;
+      word-break: break-all;
+      transition: font-size 0.1s ease;
+      letter-spacing: -2px;
+    }
+
+    .display .result.small {
+      font-size: 52px;
+    }
+
+    .display .result.xsmall {
+      font-size: 38px;
+    }
+
+    /* ボタングリッド */
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    /* 共通ボタンスタイル */
+    .btn {
+      aspect-ratio: 1;
+      border: none;
+      border-radius: 50%;
+      font-size: 32px;
+      font-weight: 400;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter 0.08s ease, transform 0.08s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:active {
+      filter: brightness(1.4);
+      transform: scale(0.94);
+    }
+
+    /* ゼロボタン（横2マス） */
+    .btn.zero {
+      aspect-ratio: unset;
+      grid-column: span 2;
+      border-radius: 50px;
+      justify-content: flex-start;
+      padding-left: 32px;
+    }
+
+    /* カラー: ライトグレー（AC, +/-, %） */
+    .btn.light {
+      background: #a5a5a5;
+      color: #000;
+    }
+
+    /* カラー: ダークグレー（数字） */
+    .btn.dark {
+      background: #333333;
+      color: #fff;
+    }
+
+    /* カラー: オレンジ（演算子） */
+    .btn.orange {
+      background: #ff9500;
+      color: #fff;
+    }
+
+    /* 演算子が選択中: 白背景にオレンジ文字 */
+    .btn.orange.active {
+      background: #fff;
+      color: #ff9500;
+    }
+
+    /* リップルエフェクト */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple-anim 0.4s linear;
+      background: rgba(255, 255, 255, 0.25);
+      pointer-events: none;
+    }
+
+    @keyframes ripple-anim {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    /* スマホ向け微調整 */
+    @media (max-width: 400px) {
+      .btn {
+        font-size: 26px;
+      }
+      .display .result {
+        font-size: 68px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <div class="display">
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="buttons">
+      <!-- Row 1 -->
+      <button class="btn light" data-action="clear">AC</button>
+      <button class="btn light" data-action="sign">+/-</button>
+      <button class="btn light" data-action="percent">%</button>
+      <button class="btn orange" data-action="operator" data-value="÷">÷</button>
+
+      <!-- Row 2 -->
+      <button class="btn dark" data-action="digit" data-value="7">7</button>
+      <button class="btn dark" data-action="digit" data-value="8">8</button>
+      <button class="btn dark" data-action="digit" data-value="9">9</button>
+      <button class="btn orange" data-action="operator" data-value="×">×</button>
+
+      <!-- Row 3 -->
+      <button class="btn dark" data-action="digit" data-value="4">4</button>
+      <button class="btn dark" data-action="digit" data-value="5">5</button>
+      <button class="btn dark" data-action="digit" data-value="6">6</button>
+      <button class="btn orange" data-action="operator" data-value="−">−</button>
+
+      <!-- Row 4 -->
+      <button class="btn dark" data-action="digit" data-value="1">1</button>
+      <button class="btn dark" data-action="digit" data-value="2">2</button>
+      <button class="btn dark" data-action="digit" data-value="3">3</button>
+      <button class="btn orange" data-action="operator" data-value="+">+</button>
+
+      <!-- Row 5 -->
+      <button class="btn dark zero" data-action="digit" data-value="0">0</button>
+      <button class="btn dark" data-action="decimal">.</button>
+      <button class="btn orange" data-action="equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    const resultEl  = document.getElementById('result');
+    const expressionEl = document.getElementById('expression');
+
+    let currentInput = '0';   // 現在表示中の数値（文字列）
+    let previousInput = '';   // 前の数値
+    let operator = null;      // 選択中の演算子
+    let shouldResetInput = false; // 次の入力で画面リセットするか
+    let justCalculated = false;   // = を押した直後か
+
+    // 演算子記号 → 計算用
+    const opMap = { '÷': '/', '×': '*', '−': '-', '+': '+' };
+
+    function updateDisplay() {
+      // 文字数に応じてフォントサイズ変更
+      resultEl.classList.remove('small', 'xsmall');
+      const len = currentInput.replace('-', '').length;
+      if (len > 11) resultEl.classList.add('xsmall');
+      else if (len > 8)  resultEl.classList.add('small');
+
+      resultEl.textContent = formatNumber(currentInput);
+    }
+
+    function formatNumber(str) {
+      if (str === 'エラー') return str;
+      const num = parseFloat(str);
+      if (isNaN(num)) return str;
+      // 最大12桁まで
+      if (Math.abs(num) >= 1e12 || (Math.abs(num) < 1e-6 && num !== 0)) {
+        return num.toExponential(5).replace(/\.?0+e/, 'e');
+      }
+      // 小数点以下は最大10桁
+      let result = parseFloat(num.toPrecision(10)).toString();
+      return result;
+    }
+
+    function calculate(a, op, b) {
+      const x = parseFloat(a);
+      const y = parseFloat(b);
+      switch (op) {
+        case '÷': return y === 0 ? 'エラー' : String(x / y);
+        case '×': return String(x * y);
+        case '−': return String(x - y);
+        case '+': return String(x + y);
+        default:  return b;
+      }
+    }
+
+    function setActiveOperator(op) {
+      document.querySelectorAll('.btn.orange').forEach(btn => btn.classList.remove('active'));
+      if (op) {
+        document.querySelectorAll('.btn.orange').forEach(btn => {
+          if (btn.dataset.value === op) btn.classList.add('active');
+        });
+      }
+    }
+
+    function addRipple(btn, e) {
+      const rect = btn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const x = (e.clientX ?? rect.left + rect.width / 2) - rect.left - size / 2;
+      const y = (e.clientY ?? rect.top + rect.height / 2) - rect.top - size / 2;
+      const ripple = document.createElement('span');
+      ripple.className = 'ripple';
+      ripple.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+      btn.appendChild(ripple);
+      ripple.addEventListener('animationend', () => ripple.remove());
+    }
+
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        addRipple(btn, e);
+        const action = btn.dataset.action;
+        const value  = btn.dataset.value;
+
+        switch (action) {
+          case 'digit': handleDigit(value); break;
+          case 'operator': handleOperator(value); break;
+          case 'equals': handleEquals(); break;
+          case 'clear': handleClear(); break;
+          case 'sign': handleSign(); break;
+          case 'percent': handlePercent(); break;
+          case 'decimal': handleDecimal(); break;
+        }
+        updateDisplay();
+      });
+    });
+
+    function handleDigit(d) {
+      // AC → C 切り替え
+      updateClearButton(false);
+
+      if (shouldResetInput || currentInput === '0') {
+        currentInput = d;
+        shouldResetInput = false;
+      } else {
+        if (currentInput.replace('-', '').length >= 12) return; // 桁数制限
+        currentInput += d;
+      }
+      justCalculated = false;
+    }
+
+    function handleOperator(op) {
+      setActiveOperator(op);
+
+      if (operator && !shouldResetInput) {
+        // 連続演算
+        const result = calculate(previousInput, operator, currentInput);
+        currentInput = result;
+        expressionEl.textContent = `${formatNumber(previousInput)} ${operator} ${formatNumber(currentInput)} =`;
+      }
+
+      previousInput = currentInput;
+      operator = op;
+      shouldResetInput = true;
+      justCalculated = false;
+      expressionEl.textContent = `${formatNumber(previousInput)} ${op}`;
+    }
+
+    function handleEquals() {
+      if (!operator || !previousInput) return;
+
+      const a = previousInput;
+      const b = currentInput;
+      const result = calculate(a, operator, b);
+
+      expressionEl.textContent = `${formatNumber(a)} ${operator} ${formatNumber(b)} =`;
+      currentInput = result;
+      previousInput = '';
+      operator = null;
+      shouldResetInput = true;
+      justCalculated = true;
+      setActiveOperator(null);
+      updateClearButton(false);
+    }
+
+    function handleClear() {
+      const clearBtn = document.querySelector('[data-action="clear"]');
+      if (clearBtn.textContent === 'C') {
+        currentInput = '0';
+        clearBtn.textContent = 'AC';
+      } else {
+        currentInput = '0';
+        previousInput = '';
+        operator = null;
+        shouldResetInput = false;
+        expressionEl.textContent = '';
+        setActiveOperator(null);
+      }
+    }
+
+    function updateClearButton(reset) {
+      const clearBtn = document.querySelector('[data-action="clear"]');
+      clearBtn.textContent = (currentInput !== '0' && !shouldResetInput) ? 'C' : 'AC';
+    }
+
+    function handleSign() {
+      if (currentInput === '0' || currentInput === 'エラー') return;
+      currentInput = currentInput.startsWith('-')
+        ? currentInput.slice(1)
+        : '-' + currentInput;
+    }
+
+    function handlePercent() {
+      if (currentInput === 'エラー') return;
+      currentInput = String(parseFloat(currentInput) / 100);
+    }
+
+    function handleDecimal() {
+      if (shouldResetInput) {
+        currentInput = '0.';
+        shouldResetInput = false;
+        return;
+      }
+      if (!currentInput.includes('.')) {
+        currentInput += '.';
+      }
+    }
+
+    // キーボード対応
+    document.addEventListener('keydown', e => {
+      const key = e.key;
+      if (key >= '0' && key <= '9') {
+        handleDigit(key); updateDisplay();
+      } else if (key === '.') {
+        handleDecimal(); updateDisplay();
+      } else if (key === '+') {
+        handleOperator('+'); updateDisplay();
+      } else if (key === '-') {
+        handleOperator('−'); updateDisplay();
+      } else if (key === '*') {
+        handleOperator('×'); updateDisplay();
+      } else if (key === '/') {
+        e.preventDefault();
+        handleOperator('÷'); updateDisplay();
+      } else if (key === 'Enter' || key === '=') {
+        handleEquals(); updateDisplay();
+      } else if (key === 'Escape') {
+        handleClear(); updateDisplay();
+      } else if (key === 'Backspace') {
+        if (currentInput.length > 1) {
+          currentInput = currentInput.slice(0, -1);
+        } else {
+          currentInput = '0';
+        }
+        updateDisplay();
+      } else if (key === '%') {
+        handlePercent(); updateDisplay();
+      }
+    });
+
+    updateDisplay();
+  </script>
+</body>
+</html>
